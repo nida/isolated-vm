@@ -136,7 +136,13 @@ auto RunWithTimeout(uint32_t timeout_ms, F&& fn) -> v8::Local<v8::Value> {
 				assert(false);
 			});
 		}
-		result = fn();
+		if (!isolate.terminated) {
+			// `TerminateExecution()` seems to sometimes not trigger when called from another thread right
+			// before a long-running task. This still check seems racy but a more robust is complicated. I
+			// think there'd need to be a watchdog from the task that requested the termination to confirm
+			// that it went through, otherwise keep trying.
+			result = fn();
+		}
 		did_finish = true;
 		{
 			// It's possible that fn() finished and the timer triggered at the same time. So here we throw
